@@ -3,14 +3,17 @@ import requests
 from unittest.mock import Mock,patch
 from github_api import get_repo_info
 
-#TestGitHubApi自定义测试类,unittest.TestCase父类,self指向自定义测试类
+#TestGitHubApi自定义测试类(子类),unittest.TestCase父类,self指向自定义测试类
 class TestGitHubApi(unittest.TestCase):
+    def setUp(self):
+        self.repo="python/cpython"
+        
     def test_403(self):#self表示当前测试的实例
         response=Mock()
         response.status_code=403
         with patch("github_api.requests.get") as mock_get:
             mock_get.return_value=response
-            results=get_repo_info("python/cpython")
+            results=get_repo_info(self.repo)
             print(results)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
@@ -20,7 +23,7 @@ class TestGitHubApi(unittest.TestCase):
         response.status_code=404
         with patch("github_api.requests.get") as mock_get:
             mock_get.return_value=response
-            results=get_repo_info("python/cpython")
+            results=get_repo_info(self.repo)
             print(results)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
@@ -29,15 +32,15 @@ class TestGitHubApi(unittest.TestCase):
         response=Mock()
             #预先json的内容
         response.json.return_value={
-            "full_name":"python/cpython",
+            "full_name":self.repo,
             "stargazers_count":100000
         }
         response.status_code=200
         with patch("github_api.requests.get") as mock_get:
             mock_get.return_value=response
-            results=get_repo_info("python/cpython")
+            results=get_repo_info(self.repo)
             print(results)
-            self.assertEqual(("python/cpython",100000),results)
+            self.assertEqual((self.repo,100000),results)
             mock_get.assert_called_once()
 
     def test_timeout(self):
@@ -46,7 +49,7 @@ class TestGitHubApi(unittest.TestCase):
             #一执行mock_get也就是requests.get就会抛出一个异常(Timeout)
             #side_effect是mock_get的一个属性:主动抛出一个异常(类似status_code是response的一个属性)
             #"请求超时"相当于github_api中的e
-            results=get_repo_info("python/cpython")
+            results=get_repo_info(self.repo)
             print(results)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
@@ -54,7 +57,7 @@ class TestGitHubApi(unittest.TestCase):
     def test_ConnectionError(self):
         with patch("github_api.requests.get")as mock_get:
             mock_get.side_effect=requests.exceptions.ConnectionError("连接异常")
-            results=get_repo_info("python/cpython")
+            results=get_repo_info(self.repo)
             print(results)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
