@@ -61,7 +61,18 @@ class TestGitHubApi(unittest.TestCase):
             print(results)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
-    
+
+    def test_missing_field(self):
+        response=Mock()
+        response.status_code=200
+        response.json.return_value={"full_name":self.repo}
+        with patch("github_api.requests.get")as mock_get:
+            mock_get.return_value=response   
+            results=get_repo_info(self.repo)
+            print(results)
+            self.assertEqual(results,(None,None))
+            mock_get.assert_called_once()
+
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 
     #unittest自动寻找并运行当前文件中符合规则的测试方法

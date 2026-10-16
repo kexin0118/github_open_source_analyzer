@@ -43,15 +43,18 @@ def get_repo():
     print("输入你想查询的仓库")
     while True:
         repo=input().strip().lower()
+        if repo=="0":
+            break
         if repo=="":
             print("仓库不能为空!")
             continue
         if repo in repos:
             print("此仓库已输入")
             continue
-        if repo=="0":
-            break
         if repo.count("/")!=1:
+            print("输入格式错误")
+            continue
+        if " "in repo:
             print("输入格式错误")
             continue
         if repo.split("/")[1]=="" or repo.split("/")[0]=="":
@@ -67,7 +70,6 @@ if __name__=="__main__":
     min_stars=get_min_stars()
     results=get_multiple_repos(repos)
     filtered=filter_repos(results,min_stars)
-    show_ranking(filtered)#False是从小到大,True是从大到小(可以不写因为被设定为默认值)
     print("repositories:",len(results))
-    print(len(filtered))
-    print(results)
+    print("大于min_stars的仓库个数:",len(filtered))
+    show_ranking(filtered)#False是从小到大,True是从大到小(可以不写因为被设定为默认值)

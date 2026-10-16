@@ -19,8 +19,13 @@ def get_repo_info(repo):
         print("请求异常",e)
         return None,None
     else:
-        print("请求成功")
-        data=response.json()
-        name=data["full_name"]
-        stars=data["stargazers_count"]
-        return name,stars
+        try:
+            data=response.json()
+            name=data["full_name"]
+            stars=data["stargazers_count"]
+        except KeyError as e:
+            print("API返回的数据缺少字段",e)
+            return None,None
+        else:
+            print("请求成功")
+            return name,stars
