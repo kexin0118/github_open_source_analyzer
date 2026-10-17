@@ -1,31 +1,7 @@
-from github_api import get_repo_info
-
-def get_stars(repo):
-    return repo[1]
-
-def show_ranking(results,descending=True):#默认值是True
-    results_stars=sorted(results,key=get_stars,reverse=descending)
-    for index,content in enumerate(results_stars,start=1):
-        name,stars=content
-        print(f"第{index}名:{name},Stars:{stars:,}")
-
-#批量获取仓库信息
-def get_multiple_repos(repos):
-    results=[]
-    for name in repos:
-        result=get_repo_info(name)
-        if result==(None,None):
-            continue
-        print(result)
-        results.append(result)
-    return results
-
-def filter_repos(results,min_stars):
-    filtered=[]
-    for result in results:
-        if result[1]>=min_stars:
-            filtered.append(result)
-    return filtered
+from ranking import show_ranking
+from ranking import filter_repos
+from github_api import get_multiple_repos
+from export import export_to_csv
 
 def get_min_stars():
     while True:
@@ -70,6 +46,7 @@ if __name__=="__main__":
     min_stars=get_min_stars()
     results=get_multiple_repos(repos)
     filtered=filter_repos(results,min_stars)
-    print("repositories:",len(results))
+    print("repositories总数:",len(results))
     print("大于min_stars的仓库个数:",len(filtered))
-    show_ranking(filtered)#False是从小到大,True是从大到小(可以不写因为被设定为默认值)
+    sorted_repo=show_ranking(filtered)#False是从小到大,True是从大到小(可以不写因为被设定为默认值)
+    export_to_csv("ranking.csv",sorted_repo)

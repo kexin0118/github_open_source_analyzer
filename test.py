@@ -1,9 +1,13 @@
 import unittest
 import requests
+import csv
+import os
 from unittest.mock import Mock,patch
 from github_api import get_repo_info
+from export import export_to_csv
 
-#TestGitHubApi自定义测试类(子类),unittest.TestCase父类,self指向自定义测试类
+#TestGitHubApi自定义测试类(子类),unittest.TestCase父类
+#self代表当前正在执行测试的对象
 class TestGitHubApi(unittest.TestCase):
     def setUp(self):
         self.repo="python/cpython"
@@ -72,6 +76,20 @@ class TestGitHubApi(unittest.TestCase):
             print(results)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
+
+    def test_export_csv(self):
+        repos=[
+            ("A",500),
+            ("B",600)
+        ]
+        export_to_csv("test_ranking.csv",repos)
+        with open("test_ranking.csv","r",encoding="utf-8-sig",newline="")as f:
+            reader=csv.reader(f)#创建一个csv读取器
+            rows=list(reader)#把读取到的没一会转换成列表,方便检查
+            self.assertEqual(rows[0],["Rank","repository","stars"])
+            self.assertEqual(rows[1],["1","A","500"])
+            self.assertEqual(rows[2],["2","B","600"])
+        self.addClassCleanup(os.remove,"test_ranking.csv")
 
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 

@@ -29,3 +29,14 @@ def get_repo_info(repo):
         else:
             print("请求成功")
             return name,stars
+
+#批量获取仓库信息
+def get_multiple_repos(repos):
+    results=[]
+    for name in repos:
+        result=get_repo_info(name)
+        if result==(None,None):
+            continue
+        print(result)
+        results.append(result)
+    return results
