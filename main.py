@@ -1,5 +1,4 @@
-from ranking import show_ranking
-from ranking import filter_repos
+from ranking import show_ranking,filter_repos
 from github_api import get_multiple_repos
 from export import export_to_csv
 
@@ -40,7 +39,7 @@ def get_repo():
     return repos
 
 #results.sort(results,key=get_stars,reverse=True)   直接修改原列表,返回值为None
-#results=sorten(results,key=get_stars,reverse=True) 不修改原列表,返回新列表
+#results=sorted(results,key=get_stars,reverse=True) 不修改原列表,返回新列表
 if __name__=="__main__":
     repos=get_repo()
     min_stars=get_min_stars()

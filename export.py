@@ -1,7 +1,7 @@
 import csv
 
 def export_to_csv(filename,repos):
-    #把打开的文件变量赋值给f
+    #f是打开的文件对象,告诉python将数据写到哪里
     with open(filename,"w",newline="",encoding="utf-8-sig")as f:
         writer=csv.writer(f)
         writer.writerow(["Rank","repository","stars"])
