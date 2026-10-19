@@ -5,6 +5,7 @@ import os
 from unittest.mock import Mock,patch
 from github_api import get_repo_info
 from export import export_to_csv
+from github_api import get_multiple_repos
 
 #TestGitHubApi自定义测试类(子类),unittest.TestCase父类
 #self代表当前正在执行测试的对象
@@ -90,6 +91,18 @@ class TestGitHubApi(unittest.TestCase):
             self.assertEqual(rows[1],["1","A","500"])
             self.assertEqual(rows[2],["2","B","600"])
         self.addClassCleanup(os.remove,"test_ranking.csv")
+
+#当批量获取仓库中的无效仓库时,程序能跳过它,并继续处理后面的有效仓库
+    def test_multiple_repos_skip_invalid(self):
+        with patch("github_api.get_repo_info") as mock_get:
+            mock_get.side_effect=[
+                ("python/cpython",77898),
+                (None,None),
+                ("pallets/flask",71000)
+            ]
+            repos=["python/cpython","invalid/repo","pallets/flask"]
+            results=get_multiple_repos(repos)
+            self.assertEqual(results,[("python/cpython",77898),("pallets/flask",71000)])
 
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 

@@ -34,9 +34,9 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
 def get_multiple_repos(repos:list[str])->list[tuple[str,int]]:
     results:list[tuple[str,int]]=[]
     for name in repos:
-        result=get_repo_info(name)
-        if result==(None,None):
+        result_name,result_stars=get_repo_info(name)
+        if result_name is None or result_stars is None:
             continue
-        print(result)
-        results.append(result)
+        print(result_name,result_stars)
+        results.append((result_name,result_stars))
     return results
