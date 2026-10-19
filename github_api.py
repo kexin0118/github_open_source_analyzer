@@ -1,10 +1,10 @@
 import requests
 
-def show_url(repo):
+def show_url(repo:str)->str:
     url=f"https://api.github.com/repos/{repo}"
     return url
 
-def get_repo_info(repo):
+def get_repo_info(repo:str)->tuple[str|None,int|None]:
     url=show_url(repo)
     try:
         response=requests.get(url,timeout=10)
@@ -31,8 +31,8 @@ def get_repo_info(repo):
             return name,stars
 
 #批量获取仓库信息
-def get_multiple_repos(repos):
-    results=[]
+def get_multiple_repos(repos:list[str])->list[tuple[str,int]]:
+    results:list[tuple[str,int]]=[]
     for name in repos:
         result=get_repo_info(name)
         if result==(None,None):

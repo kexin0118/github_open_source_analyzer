@@ -2,7 +2,7 @@ from ranking import show_ranking,filter_repos
 from github_api import get_multiple_repos
 from export import export_to_csv
 
-def get_min_stars():
+def get_min_stars()->int:
     while True:
         try:
             n=int(input("输入最小stars:"))
@@ -13,7 +13,7 @@ def get_min_stars():
         except ValueError:
             print("输入错误,请重新输入整数!")
 
-def get_repo():
+def get_repo()->list[str]:
     repos=[]
     print("输入你想查询的仓库")
     while True:
