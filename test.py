@@ -116,6 +116,17 @@ class TestGitHubApi(unittest.TestCase):
                     timeout=10
                 )
 
+    def test_without_token(self):
+        with patch.dict("os.environ",{"GITHUB_TOKEN":""}):
+            with patch("github_api.requests.get")as mock_get:
+                mock_get.return_value.status_code=404
+                get_repo_info(self.repo)
+                mock_get.assert_called_once_with(
+                    show_url(self.repo),
+                    headers={},
+                    timeout=10
+                )
+
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 
     #unittest自动寻找并运行当前文件中符合规则的测试方法
