@@ -3,7 +3,7 @@ import requests
 import csv
 import os
 from unittest.mock import Mock,patch
-from github_api import get_repo_info
+from github_api import get_repo_info,show_url
 from export import export_to_csv
 from github_api import get_multiple_repos
 
@@ -103,6 +103,18 @@ class TestGitHubApi(unittest.TestCase):
             repos=["python/cpython","invalid/repo","pallets/flask"]
             results=get_multiple_repos(repos)
             self.assertEqual(results,[("python/cpython",77898),("pallets/flask",71000)])
+
+    def test_token_header(self):
+        #with内部会读取到fake_token
+        with patch.dict("os.environ",{"GITHUB_TOKEN":"fake_token"}):
+            with patch("github_api.requests.get")as mock_get:
+                mock_get.return_value.status_code=404
+                get_repo_info(self.repo)
+                mock_get.assert_called_once_with(
+                    show_url(self.repo),
+                    headers={"Authorization":"Bearer fake_token"},
+                    timeout=10
+                )
 
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 

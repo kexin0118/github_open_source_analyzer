@@ -1,4 +1,5 @@
 import requests
+import os
 
 def show_url(repo:str)->str:
     url=f"https://api.github.com/repos/{repo}"
@@ -6,8 +7,13 @@ def show_url(repo:str)->str:
 
 def get_repo_info(repo:str)->tuple[str|None,int|None]:
     url=show_url(repo)
+    #读取密钥
+    token=os.getenv("GITHUB_TOKEN")
     try:
-        response=requests.get(url,timeout=10)
+        headers={}
+        if token:
+            headers["Authorization"]=f"Bearer {token}"
+        response=requests.get(url,headers=headers,timeout=10)
         if response.status_code==404:
             print(f"仓库{repo}不存在")
             return None,None
