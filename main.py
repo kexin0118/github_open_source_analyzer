@@ -38,14 +38,15 @@ def get_repo()->list[str]:
         repos.append(repo)
     return repos
 
-#results.sort(results,key=get_stars,reverse=True)   直接修改原列表,返回值为None
-#results=sorted(results,key=get_stars,reverse=True) 不修改原列表,返回新列表
 if __name__=="__main__":
     repos=get_repo()
-    min_stars=get_min_stars()
-    results=get_multiple_repos(repos)
-    filtered=filter_repos(results,min_stars)
-    print("repositories总数:",len(results))
-    print("大于min_stars的仓库个数:",len(filtered))
-    sorted_repo=show_ranking(filtered)#False是从小到大,True是从大到小(可以不写因为被设定为默认值)
-    export_to_csv("ranking.csv",sorted_repo)
+    if not repos:
+        print("没有输入仓库")
+    else:
+        min_stars=get_min_stars()
+        results=get_multiple_repos(repos)
+        filtered=filter_repos(results,min_stars)
+        print("repositories总数:",len(results))
+        print("大于min_stars的仓库个数:",len(filtered))
+        sorted_repo=show_ranking(filtered)#False是从小到大,True是从大到小(可以不写因为被设定为默认值)
+        export_to_csv("ranking.csv",sorted_repo)
