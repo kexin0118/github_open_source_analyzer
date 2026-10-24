@@ -161,6 +161,7 @@ class TestGitHubApi(unittest.TestCase):
             }
             result=get_repo_info(self.repo)
             self.assertEqual((None,None),result)
+
         
         
 if __name__=="__main__":#只有运行test.py才执行下面代码
