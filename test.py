@@ -106,7 +106,7 @@ class TestGitHubApi(unittest.TestCase):
 
     def test_token_header(self):
         #with内部会读取到fake_token
-        with patch.dict("os.environ",{"GITHUB_TOKEN":"fake_token"}):
+        with patch.dict("os.environ",{"GITHUB_TOKEN":"fake_token"}):#把环境变量GITHUB_TOKEN修改为faketoken
             with patch("github_api.requests.get")as mock_get:
                 mock_get.return_value.status_code=404
                 get_repo_info(self.repo)
@@ -127,6 +127,31 @@ class TestGitHubApi(unittest.TestCase):
                     timeout=10
                 )
 
+    @patch("github_api.requests.get")
+    def test_invalid_stars_name(self,mock_get):
+        invalid_values=[
+            ("python/cpython","100"),
+            ("python/cpython",True),
+            ("python/cpython",-10),
+            ("python/cpython",None),
+            ("python/cpython",100.5),
+            (None,100),
+            ("",100),
+            (123,100)
+        ]
+        
+        for name,stars in invalid_values:
+            response=Mock()
+            mock_get.return_value=response
+            response.status_code=200
+            response.json.return_value={
+                "full_name":name,
+                "stargazers_count":stars
+            }
+            result=get_repo_info(self.repo)
+            self.assertEqual((None,None),result)
+        
+        
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 
     #unittest自动寻找并运行当前文件中符合规则的测试方法

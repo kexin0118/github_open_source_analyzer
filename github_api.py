@@ -12,7 +12,7 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
     try:
         headers={}
         if token:
-            headers["Authorization"]=f"Bearer {token}"
+           headers["Authorization"]=f"Bearer {token}"
         response=requests.get(url,headers=headers,timeout=10)
         if response.status_code==404:
             print(f"仓库{repo}不存在")
@@ -29,6 +29,10 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
             data=response.json()
             name=data["full_name"]
             stars=data["stargazers_count"]
+            if type(stars) is not int or stars<0:
+                return None,None
+            if not isinstance(name,str) or not name:
+                return None,None
         except KeyError as e:
             print("API返回的数据缺少字段",e)
             return None,None
