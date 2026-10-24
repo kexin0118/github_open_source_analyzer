@@ -48,6 +48,17 @@ class TestGitHubApi(unittest.TestCase):
             self.assertEqual((self.repo,100000),results)
             mock_get.assert_called_once()
 
+    @patch("github_api.requests.get")
+    def test_invalid_json_structure(self,mock_get):
+        datas=["invalid",100,None,[]]
+        response=Mock()
+        mock_get.return_value=response
+        response.status_code=200
+        for data in datas:
+            response.json.return_value=data
+            result=get_repo_info(self.repo)
+            self.assertEqual(result,(None,None))
+
     def test_timeout(self):
         with patch("github_api.requests.get")as mock_get:
             mock_get.side_effect=requests.exceptions.Timeout("请求超时")

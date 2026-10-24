@@ -27,6 +27,8 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
     else:
         try:
             data=response.json()
+            if not isinstance(data,dict):
+                return None,None
             name=data["full_name"]
             stars=data["stargazers_count"]
             if type(stars) is not int or stars<0:
