@@ -1,12 +1,15 @@
 import requests
 import os
+import logging
 
+logger=logging.getLogger(__name__)#name标识当前模块身份
 def show_url(repo:str)->str:
     url=f"https://api.github.com/repos/{repo}"
     return url
 
 def get_repo_info(repo:str)->tuple[str|None,int|None]:
     url=show_url(repo)
+    logger.info(f"开始请求仓库:{repo}")#记录程序准备请求哪个仓库
     #读取密钥
     token=os.getenv("GITHUB_TOKEN")
     try:
@@ -15,13 +18,16 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
            headers["Authorization"]=f"Bearer {token}"
         response=requests.get(url,headers=headers,timeout=10)
         if response.status_code==404:
+            logger.error(f"仓库 {repo} 不存在,HTTP 状态码:404")
             print(f"仓库{repo}不存在")
             return None,None
         if response.status_code==403:
+            logger.warning(f"仓库{repo}请求被拒绝, HTTP 状态码:403,可能权限不足或API请求收到限制")
             print("被拒绝请求,可能权限不足或API请求收到限制")
             return None,None
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
+        logger.exception(f"仓库{repo}请求发生异常")
         print("请求异常",e)
         return None,None
     else:

@@ -1,6 +1,11 @@
 from ranking import show_ranking,filter_repos
 from github_api import get_multiple_repos
 from export import export_to_csv
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s-%(name)s-%(levelname)s-%(message)s"
+)
 
 def get_min_stars()->int:
     while True:
