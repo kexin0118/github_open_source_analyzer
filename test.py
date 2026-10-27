@@ -18,8 +18,11 @@ class TestGitHubApi(unittest.TestCase):
         response.status_code=403
         with patch("github_api.requests.get") as mock_get:
             mock_get.return_value=response
-            results=get_repo_info(self.repo)
-            print(results)
+            with self.assertLogs("github_api",level="WARNING")as cm:
+                results=get_repo_info(self.repo)
+
+            self.assertIn("可能权限不足或API请求收到限制",cm.output[0])
+            self.assertIsNone(cm.records[0].exc_info)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
 
@@ -28,8 +31,10 @@ class TestGitHubApi(unittest.TestCase):
         response.status_code=404
         with patch("github_api.requests.get") as mock_get:
             mock_get.return_value=response
-            results=get_repo_info(self.repo)
-            print(results)
+            with self.assertLogs("github_api",level="WARNING")as cm:
+                results=get_repo_info(self.repo)
+            self.assertIn("不存在",cm.output[0])
+            self.assertIsNone(cm.records[0].exc_info)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
 
@@ -62,19 +67,26 @@ class TestGitHubApi(unittest.TestCase):
     def test_timeout(self):
         with patch("github_api.requests.get")as mock_get:
             mock_get.side_effect=requests.exceptions.Timeout("请求超时")
-            #一执行mock_get也就是requests.get就会抛出一个异常(Timeout)
-            #side_effect是mock_get的一个属性:主动抛出一个异常(类似status_code是response的一个属性)
-            #"请求超时"相当于github_api中的e
-            results=get_repo_info(self.repo)
-            print(results)
+            with self.assertLogs("github_api",level="ERROR")as cm:
+                results=get_repo_info(self.repo)
+
+            self.assertIn("请求发生异常",cm.output[0])
+            self.assertIsNotNone(cm.records[0].exc_info)
+            if cm.records[0].exc_info is not None:
+                self.assertIs(cm.records[0].exc_info[0],requests.exceptions.Timeout)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
 
     def test_ConnectionError(self):
         with patch("github_api.requests.get")as mock_get:
             mock_get.side_effect=requests.exceptions.ConnectionError("连接异常")
-            results=get_repo_info(self.repo)
-            print(results)
+            with self.assertLogs("github_api",level="ERROR")as cm:
+                results=get_repo_info(self.repo)
+
+            self.assertIn("请求发生异常",cm.output[0])
+            self.assertIsNotNone(cm.records[0].exc_info)
+            if cm.records[0].exc_info is not None:
+                self.assertIs(cm.records[0].exc_info[0],requests.exceptions.ConnectionError)
             self.assertEqual(results,(None,None))
             mock_get.assert_called_once()
 
@@ -162,6 +174,23 @@ class TestGitHubApi(unittest.TestCase):
             result=get_repo_info(self.repo)
             self.assertEqual((None,None),result)
 
+    def test_success_logging(self):
+        response=Mock()
+        response.status_code=200
+        response.json.return_value={
+            "full_name":"python/cpython",
+            "stargazers_count":1000
+        }
+        with patch("github_api.requests.get")as mock_get:
+            mock_get.return_value=response
+            with self.assertLogs("github_api",level="INFO")as mc:
+                result=get_repo_info(self.repo)
+
+            self.assertEqual(mc.records[0].levelname,"INFO")
+            self.assertTrue(any("数据获取成功"in log for log in mc.output))
+            self.assertTrue(all(record.levelname=="INFO"for record in mc.records))
+            self.assertEqual(result,("python/cpython",1000))
+            mock_get.assert_called_once()
         
         
 if __name__=="__main__":#只有运行test.py才执行下面代码

@@ -18,7 +18,7 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
            headers["Authorization"]=f"Bearer {token}"
         response=requests.get(url,headers=headers,timeout=10)
         if response.status_code==404:
-            logger.error(f"仓库 {repo} 不存在,HTTP 状态码:404")
+            logger.warning(f"仓库 {repo} 不存在,HTTP 状态码:404")
             print(f"仓库{repo}不存在")
             return None,None
         if response.status_code==403:
@@ -45,6 +45,7 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
             print("API返回的数据缺少字段",e)
             return None,None
         else:
+            logger.info("仓库 %s 数据获取成功",name)
             print("请求成功")
             return name,stars
 
