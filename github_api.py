@@ -34,14 +34,18 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
         try:
             data=response.json()
             if not isinstance(data,dict):
+                logger.warning(f"{repo} GitHub API返回不是字典")
                 return None,None
             name=data["full_name"]
             stars=data["stargazers_count"]
             if type(stars) is not int or stars<0:
+                logger.warning(f"{stars}不合法")
                 return None,None
             if not isinstance(name,str) or not name:
+                logger.warning(f"{name}不合法")
                 return None,None
         except KeyError as e:
+            logger.warning(f"仓库{repo}缺少字段 {e}")
             print("API返回的数据缺少字段",e)
             return None,None
         else:

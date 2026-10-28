@@ -61,7 +61,10 @@ class TestGitHubApi(unittest.TestCase):
         response.status_code=200
         for data in datas:
             response.json.return_value=data
-            result=get_repo_info(self.repo)
+            with self.assertLogs("github_api",level="WARNING")as cm:
+                result=get_repo_info(self.repo)
+            
+            self.assertIn(f"{self.repo} GitHub API返回不是字典",cm.output[0])
             self.assertEqual(result,(None,None))
 
     def test_timeout(self):
@@ -91,15 +94,22 @@ class TestGitHubApi(unittest.TestCase):
             mock_get.assert_called_once()
 
     def test_missing_field(self):
-        response=Mock()
-        response.status_code=200
-        response.json.return_value={"full_name":self.repo}
-        with patch("github_api.requests.get")as mock_get:
-            mock_get.return_value=response   
-            results=get_repo_info(self.repo)
-            print(results)
-            self.assertEqual(results,(None,None))
-            mock_get.assert_called_once()
+        cases=[
+            ({"full_name":self.repo},"stargazers_count"),
+            ({"stargazers_count":100},"full_name")
+        ]
+        for data,missing_field in cases:
+            response=Mock()
+            response.status_code=200
+            response.json.return_value=data
+            with patch("github_api.requests.get")as mock_get:
+                mock_get.return_value=response
+                with self.assertLogs("github_api",level="WARNING")as cm:
+                    results=get_repo_info(self.repo)   
+                print(results)
+                self.assertIn(f"缺少字段 '{missing_field}'",cm.output[0])
+                self.assertEqual(results,(None,None))
+                mock_get.assert_called_once()
 
     def test_export_csv(self):
         repos=[
@@ -171,7 +181,12 @@ class TestGitHubApi(unittest.TestCase):
                 "full_name":name,
                 "stargazers_count":stars
             }
-            result=get_repo_info(self.repo)
+            with self.assertLogs("github_api",level="WARNING")as cm:
+                result=get_repo_info(self.repo)
+            if type(stars) is not int or stars<0:
+                self.assertIn(f"{stars}不合法",cm.output[0])
+            elif not isinstance(name,str) or not name:
+                self.assertIn(f"{name}不合法",cm.output[0])
             self.assertEqual((None,None),result)
 
     def test_success_logging(self):
