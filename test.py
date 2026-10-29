@@ -2,6 +2,8 @@ import unittest
 import requests
 import csv
 import os
+import importlib
+import config
 from unittest.mock import Mock,patch
 from github_api import get_repo_info,show_url
 from export import export_to_csv
@@ -63,8 +65,8 @@ class TestGitHubApi(unittest.TestCase):
             response.json.return_value=data
             with self.assertLogs("github_api",level="WARNING")as cm:
                 result=get_repo_info(self.repo)
-            
-            self.assertIn(f"{self.repo} GitHub API返回不是字典",cm.output[0])
+
+            self.assertIn(f"仓库{self.repo}数据模式错误",cm.output[0])
             self.assertEqual(result,(None,None))
 
     def test_timeout(self):
@@ -206,7 +208,41 @@ class TestGitHubApi(unittest.TestCase):
             self.assertTrue(all(record.levelname=="INFO"for record in mc.records))
             self.assertEqual(result,("python/cpython",1000))
             mock_get.assert_called_once()
-        
+
+    def test_request_timeout_from_env(self):
+        with patch.dict(os.environ,{"REQUEST_TIMEOUT":"20"}):
+            self.addCleanup(importlib.reload,config)#测试结束后才执行,并不是当下立即执行
+            importlib.reload(config)
+            self.assertEqual(config.REQUEST_TIMEOUT,20)
+
+    #验证配置有没有真正传给requests.get()
+    @patch("github_api.requests.get")
+    def test_api_uses_config_timeout(self,mock_get):
+        with patch.dict(os.environ,{"REQUEST_TIMEOUT":"20"},clear=True):#临时清除原有的环境变量,再放入我们指定的环境变量
+            self.addCleanup(importlib.reload,config)
+            importlib.reload(config)
+            mock_get.return_value.status_code=200
+            mock_get.return_value.json.return_value={
+                "full_name":"python/cpython",
+                "stargazers_count":1000
+            }
+            result=get_repo_info(self.repo)
+            self.assertEqual(result,("python/cpython",1000))
+            mock_get.assert_called_once_with(
+                show_url(self.repo),
+                headers={},
+                timeout=20
+            )
+
+    def test_invalid_request_timeout(self):
+        tests=["-10","0","7.8","abc"]
+        self.addCleanup(importlib.reload,config)
+        for test in tests:
+            with self.subTest(value=test):#给循环中的每组测试数据建立一个独立的子测试
+                with patch.dict(os.environ,{"REQUEST_TIMEOUT":test}):
+                    importlib.reload(config)
+                    self.assertEqual(config.DEFULT_TIMEOUT,config.REQUEST_TIMEOUT)
+
         
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 

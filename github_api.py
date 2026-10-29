@@ -1,6 +1,8 @@
 import requests
 import os
 import logging
+from exceptions import GitHubDataError
+import config
 
 logger=logging.getLogger(__name__)#name标识当前模块身份
 def show_url(repo:str)->str:
@@ -9,14 +11,14 @@ def show_url(repo:str)->str:
 
 def get_repo_info(repo:str)->tuple[str|None,int|None]:
     url=show_url(repo)
-    logger.info(f"开始请求仓库:{repo}")#记录程序准备请求哪个仓库
+    logger.info(f"开始请求仓库:{repo}")
     #读取密钥
     token=os.getenv("GITHUB_TOKEN")
     try:
         headers={}
         if token:
            headers["Authorization"]=f"Bearer {token}"
-        response=requests.get(url,headers=headers,timeout=10)
+        response=requests.get(url,headers=headers,timeout=config.REQUEST_TIMEOUT)
         if response.status_code==404:
             logger.warning(f"仓库 {repo} 不存在,HTTP 状态码:404")
             print(f"仓库{repo}不存在")
@@ -34,8 +36,7 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
         try:
             data=response.json()
             if not isinstance(data,dict):
-                logger.warning(f"{repo} GitHub API返回不是字典")
-                return None,None
+                raise GitHubDataError("数据模式错误")
             name=data["full_name"]
             stars=data["stargazers_count"]
             if type(stars) is not int or stars<0:
@@ -47,6 +48,9 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
         except KeyError as e:
             logger.warning(f"仓库{repo}缺少字段 {e}")
             print("API返回的数据缺少字段",e)
+            return None,None
+        except GitHubDataError as e:
+            logger.warning(f"仓库{repo}{e}")
             return None,None
         else:
             logger.info("仓库 %s 数据获取成功",name)
