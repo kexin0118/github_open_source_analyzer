@@ -14,11 +14,22 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
     logger.info(f"开始请求仓库:{repo}")
     #读取密钥
     token=os.getenv("GITHUB_TOKEN")
+    
     try:
         headers={}
         if token:
            headers["Authorization"]=f"Bearer {token}"
-        response=requests.get(url,headers=headers,timeout=config.REQUEST_TIMEOUT)
+
+        for attempt in range(3):
+            try:
+                response=requests.get(url,headers=headers,timeout=config.REQUEST_TIMEOUT)
+            except (requests.exceptions.Timeout,requests.exceptions.ConnectionError)as e:
+                if attempt==2:
+                    raise #交给外层except
+                logger.warning(f"仓库 {repo} 第{attempt+1}次请求失败,准备重试:{e}")
+                continue
+            else:
+                break
         if response.status_code==404:
             logger.warning(f"仓库 {repo} 不存在,HTTP 状态码:404")
             print(f"仓库{repo}不存在")

@@ -80,7 +80,7 @@ class TestGitHubApi(unittest.TestCase):
             if cm.records[0].exc_info is not None:
                 self.assertIs(cm.records[0].exc_info[0],requests.exceptions.Timeout)
             self.assertEqual(results,(None,None))
-            mock_get.assert_called_once()
+            self.assertEqual(mock_get.call_count,3)
 
     def test_ConnectionError(self):
         with patch("github_api.requests.get")as mock_get:
@@ -93,7 +93,7 @@ class TestGitHubApi(unittest.TestCase):
             if cm.records[0].exc_info is not None:
                 self.assertIs(cm.records[0].exc_info[0],requests.exceptions.ConnectionError)
             self.assertEqual(results,(None,None))
-            mock_get.assert_called_once()
+            self.assertEqual(mock_get.call_count,3)
 
     def test_missing_field(self):
         cases=[
@@ -219,7 +219,7 @@ class TestGitHubApi(unittest.TestCase):
     @patch("github_api.requests.get")
     def test_api_uses_config_timeout(self,mock_get):
         with patch.dict(os.environ,{"REQUEST_TIMEOUT":"20"},clear=True):#临时清除原有的环境变量,再放入我们指定的环境变量
-            self.addCleanup(importlib.reload,config)
+            self.addCleanup(importlib.reload,config)#结束时清理
             importlib.reload(config)
             mock_get.return_value.status_code=200
             mock_get.return_value.json.return_value={
@@ -242,6 +242,67 @@ class TestGitHubApi(unittest.TestCase):
                 with patch.dict(os.environ,{"REQUEST_TIMEOUT":test}):
                     importlib.reload(config)
                     self.assertEqual(config.DEFULT_TIMEOUT,config.REQUEST_TIMEOUT)
+
+    def test_retry_success(self):
+        response=Mock()
+        response.json.return_value={
+            "full_name":"python/cpython",
+            "stargazers_count":1000
+        }
+        response.status_code=200
+        with patch("github_api.requests.get")as mock_get:
+            mock_get.side_effect=[
+                requests.exceptions.Timeout("第一次超时"),
+                requests.exceptions.Timeout("第二次超时"),
+                response
+            ]
+            with self.assertLogs("github_api",level="WARNING")as cm:
+                result=get_repo_info(self.repo)
+            self.assertEqual(len(cm.records),2)
+            self.assertIn("第1次请求失败",cm.records[0].getMessage())#getMessage是方法
+            self.assertIn("第2次请求失败",cm.records[1].getMessage())
+            self.assertEqual(mock_get.call_count,3)
+            self.assertEqual((self.repo,1000),result)
+
+    def test_retry_exhausted(self):
+        with patch("github_api.requests.get")as mock_get:
+            mock_get.side_effect=[
+                requests.exceptions.Timeout("请求超时")
+            ]*3
+            
+            result=get_repo_info(self.repo)
+            self.assertEqual(mock_get.call_count,3)
+            self.assertEqual((None,None),result)
+
+    def test_retry_once_success(self):
+        response=Mock()
+        response.json.return_value={
+            "full_name":"python/cpython",
+            "stargazers_count":1000
+        }
+        response.status_code=200
+        with patch("github_api.requests.get")as mock_get:
+            mock_get.return_value=response
+            result=get_repo_info(self.repo)
+
+        mock_get.assert_called_once()
+        self.assertEqual(("python/cpython",1000),result)
+
+    def test_connection_recovery(self):
+        response=Mock()
+        response.status_code=200
+        response.json.return_value={
+            "full_name":"python/cpython",
+            "stargazers_count":1000
+        }
+        with patch("github_api.requests.get")as mock_get:
+            mock_get.side_effect=[
+                requests.exceptions.ConnectionError("连接失败"),
+                response
+            ]
+            result=get_repo_info(self.repo)
+        self.assertEqual(mock_get.call_count,2)
+        self.assertEqual(result,(self.repo,1000))
 
         
 if __name__=="__main__":#只有运行test.py才执行下面代码
