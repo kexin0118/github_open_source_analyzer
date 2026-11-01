@@ -82,7 +82,7 @@ class TestGitHubApi(unittest.TestCase):
                 if cm.records[0].exc_info is not None:
                     self.assertIs(cm.records[0].exc_info[0],requests.exceptions.Timeout)
                 for attempt in range(2):
-                    self.assertEqual(mock_sleep.call_args_list[attempt],call(2**attempt))
+                    self.assertEqual(mock_sleep.call_args_list[attempt],call(config.RETRIES_BACKOFF_BASE**attempt))
                 self.assertEqual(results,(None,None))
                 self.assertEqual(mock_get.call_count,3)
 
@@ -98,7 +98,7 @@ class TestGitHubApi(unittest.TestCase):
                 if cm.records[0].exc_info is not None:
                     self.assertIs(cm.records[0].exc_info[0],requests.exceptions.ConnectionError)
                 for attempt in range(2):
-                    self.assertEqual(mock_sleep.call_args_list[attempt],call(2**attempt))
+                    self.assertEqual(mock_sleep.call_args_list[attempt],call(config.RETRIES_BACKOFF_BASE**attempt))
                 self.assertEqual(results,(None,None))
                 self.assertEqual(mock_get.call_count,3)
 
@@ -270,7 +270,7 @@ class TestGitHubApi(unittest.TestCase):
                 self.assertIn("第1次请求失败",cm.records[0].getMessage())#getMessage是方法
                 self.assertIn("第2次请求失败",cm.records[1].getMessage())
                 for attempt in range(2):
-                    self.assertEqual(mock_sleep.call_args_list[attempt],call(2**attempt))
+                    self.assertEqual(mock_sleep.call_args_list[attempt],call(config.RETRIES_BACKOFF_BASE**attempt))
                 self.assertEqual(mock_get.call_count,3)
                 self.assertEqual((self.repo,1000),result)
 
@@ -282,11 +282,11 @@ class TestGitHubApi(unittest.TestCase):
             with patch ("github_api.time.sleep")as mock_sleep:
 
                 result=get_repo_info(self.repo)
-                self.assertEqual(mock_sleep.call_count,2)
+                self.assertEqual(mock_sleep.call_args_list,[call(1),call(2)])
                 #call(1)一次参数为1的调用记录
                 #call_args_list存放调用记录的列表
             for attempt in range(2):
-                self.assertEqual(mock_sleep.call_args_list[attempt],call(2**attempt))
+                self.assertEqual(mock_sleep.call_args_list[attempt],call(config.RETRIES_BACKOFF_BASE**attempt))
             self.assertEqual(mock_get.call_count,3)
             self.assertEqual((None,None),result)
 

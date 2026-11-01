@@ -19,3 +19,5 @@ except ValueError:
 else:
     if MAX_RETRIES<=0:
         MAX_RETRIES=DEFAULT_MAX_RETRIES
+
+RETRIES_BACKOFF_BASE=2

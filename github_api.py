@@ -28,7 +28,7 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
                 if attempt==config.MAX_RETRIES-1:
                     raise #交给外层except
                 logger.warning(f"仓库 {repo} 第{attempt+1}次请求失败,准备重试:{e}")
-                time.sleep(2**attempt)
+                time.sleep(config.RETRIES_BACKOFF_BASE**attempt)
                 continue
             else:
                 break
