@@ -10,3 +10,12 @@ except ValueError:
 else:
     if REQUEST_TIMEOUT<=0:
         REQUEST_TIMEOUT=DEFULT_TIMEOUT
+
+DEFAULT_MAX_RETRIES=3
+try: 
+    MAX_RETRIES=int(os.getenv("MAX_RETRIES","3"))
+except ValueError:
+    MAX_RETRIES=DEFAULT_MAX_RETRIES
+else:
+    if MAX_RETRIES<=0:
+        MAX_RETRIES=DEFAULT_MAX_RETRIES

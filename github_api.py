@@ -3,6 +3,7 @@ import os
 import logging
 from exceptions import GitHubDataError
 import config
+import time
 
 logger=logging.getLogger(__name__)#name标识当前模块身份
 def show_url(repo:str)->str:
@@ -19,14 +20,15 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
         headers={}
         if token:
            headers["Authorization"]=f"Bearer {token}"
-
-        for attempt in range(3):
+        
+        for attempt in range(config.MAX_RETRIES):
             try:
                 response=requests.get(url,headers=headers,timeout=config.REQUEST_TIMEOUT)
             except (requests.exceptions.Timeout,requests.exceptions.ConnectionError)as e:
-                if attempt==2:
+                if attempt==config.MAX_RETRIES-1:
                     raise #交给外层except
                 logger.warning(f"仓库 {repo} 第{attempt+1}次请求失败,准备重试:{e}")
+                time.sleep(2**attempt)
                 continue
             else:
                 break

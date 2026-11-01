@@ -4,7 +4,8 @@ import csv
 import os
 import importlib
 import config
-from unittest.mock import Mock,patch
+import time
+from unittest.mock import Mock,patch,call
 from github_api import get_repo_info,show_url
 from export import export_to_csv
 from github_api import get_multiple_repos
@@ -72,28 +73,34 @@ class TestGitHubApi(unittest.TestCase):
     def test_timeout(self):
         with patch("github_api.requests.get")as mock_get:
             mock_get.side_effect=requests.exceptions.Timeout("请求超时")
-            with self.assertLogs("github_api",level="ERROR")as cm:
-                results=get_repo_info(self.repo)
+            with patch ("github_api.time.sleep")as mock_sleep:
+                with self.assertLogs("github_api",level="ERROR")as cm:
+                    results=get_repo_info(self.repo)
 
-            self.assertIn("请求发生异常",cm.output[0])
-            self.assertIsNotNone(cm.records[0].exc_info)
-            if cm.records[0].exc_info is not None:
-                self.assertIs(cm.records[0].exc_info[0],requests.exceptions.Timeout)
-            self.assertEqual(results,(None,None))
-            self.assertEqual(mock_get.call_count,3)
+                self.assertIn("请求发生异常",cm.output[0])
+                self.assertIsNotNone(cm.records[0].exc_info)
+                if cm.records[0].exc_info is not None:
+                    self.assertIs(cm.records[0].exc_info[0],requests.exceptions.Timeout)
+                for attempt in range(2):
+                    self.assertEqual(mock_sleep.call_args_list[attempt],call(2**attempt))
+                self.assertEqual(results,(None,None))
+                self.assertEqual(mock_get.call_count,3)
 
     def test_ConnectionError(self):
         with patch("github_api.requests.get")as mock_get:
             mock_get.side_effect=requests.exceptions.ConnectionError("连接异常")
-            with self.assertLogs("github_api",level="ERROR")as cm:
-                results=get_repo_info(self.repo)
+            with patch ("github_api.time.sleep")as mock_sleep:
+                with self.assertLogs("github_api",level="ERROR")as cm:
+                    results=get_repo_info(self.repo)
 
-            self.assertIn("请求发生异常",cm.output[0])
-            self.assertIsNotNone(cm.records[0].exc_info)
-            if cm.records[0].exc_info is not None:
-                self.assertIs(cm.records[0].exc_info[0],requests.exceptions.ConnectionError)
-            self.assertEqual(results,(None,None))
-            self.assertEqual(mock_get.call_count,3)
+                self.assertIn("请求发生异常",cm.output[0])
+                self.assertIsNotNone(cm.records[0].exc_info)
+                if cm.records[0].exc_info is not None:
+                    self.assertIs(cm.records[0].exc_info[0],requests.exceptions.ConnectionError)
+                for attempt in range(2):
+                    self.assertEqual(mock_sleep.call_args_list[attempt],call(2**attempt))
+                self.assertEqual(results,(None,None))
+                self.assertEqual(mock_get.call_count,3)
 
     def test_missing_field(self):
         cases=[
@@ -256,21 +263,30 @@ class TestGitHubApi(unittest.TestCase):
                 requests.exceptions.Timeout("第二次超时"),
                 response
             ]
-            with self.assertLogs("github_api",level="WARNING")as cm:
-                result=get_repo_info(self.repo)
-            self.assertEqual(len(cm.records),2)
-            self.assertIn("第1次请求失败",cm.records[0].getMessage())#getMessage是方法
-            self.assertIn("第2次请求失败",cm.records[1].getMessage())
-            self.assertEqual(mock_get.call_count,3)
-            self.assertEqual((self.repo,1000),result)
+            with patch("github_api.time.sleep")as mock_sleep:
+                with self.assertLogs("github_api",level="WARNING")as cm:
+                    result=get_repo_info(self.repo)
+                self.assertEqual(len(cm.records),2)
+                self.assertIn("第1次请求失败",cm.records[0].getMessage())#getMessage是方法
+                self.assertIn("第2次请求失败",cm.records[1].getMessage())
+                for attempt in range(2):
+                    self.assertEqual(mock_sleep.call_args_list[attempt],call(2**attempt))
+                self.assertEqual(mock_get.call_count,3)
+                self.assertEqual((self.repo,1000),result)
 
     def test_retry_exhausted(self):
         with patch("github_api.requests.get")as mock_get:
             mock_get.side_effect=[
                 requests.exceptions.Timeout("请求超时")
             ]*3
-            
-            result=get_repo_info(self.repo)
+            with patch ("github_api.time.sleep")as mock_sleep:
+
+                result=get_repo_info(self.repo)
+                self.assertEqual(mock_sleep.call_count,2)
+                #call(1)一次参数为1的调用记录
+                #call_args_list存放调用记录的列表
+            for attempt in range(2):
+                self.assertEqual(mock_sleep.call_args_list[attempt],call(2**attempt))
             self.assertEqual(mock_get.call_count,3)
             self.assertEqual((None,None),result)
 
@@ -283,10 +299,11 @@ class TestGitHubApi(unittest.TestCase):
         response.status_code=200
         with patch("github_api.requests.get")as mock_get:
             mock_get.return_value=response
-            result=get_repo_info(self.repo)
-
+            with patch("github_api.time.sleep")as mock_sleep:
+                result=get_repo_info(self.repo)
         mock_get.assert_called_once()
         self.assertEqual(("python/cpython",1000),result)
+        self.assertEqual(mock_sleep.call_count,0)
 
     def test_connection_recovery(self):
         response=Mock()
@@ -296,14 +313,56 @@ class TestGitHubApi(unittest.TestCase):
             "stargazers_count":1000
         }
         with patch("github_api.requests.get")as mock_get:
-            mock_get.side_effect=[
-                requests.exceptions.ConnectionError("连接失败"),
-                response
-            ]
-            result=get_repo_info(self.repo)
+            with patch("github_api.time.sleep")as mock_sleep:
+                mock_get.side_effect=[
+                    requests.exceptions.ConnectionError("连接失败"),
+                    response
+                ]
+                result=get_repo_info(self.repo)
+        
+        self.assertEqual(mock_sleep.call_args_list,[call(1)])
         self.assertEqual(mock_get.call_count,2)
         self.assertEqual(result,(self.repo,1000))
 
+    def test_custom_max_retries(self):
+        with patch("github_api.requests.get")as mock_get:
+            with patch("config.MAX_RETRIES",2):
+                with patch("github_api.time.sleep")as mock_sleep:
+                    mock_get.side_effect=[
+                        requests.exceptions.Timeout("请求超时")
+                    ]*2
+                    result=get_repo_info(self.repo)
+                    self.assertEqual(result,(None,None))
+                    self.assertEqual(mock_get.call_count,2)
+                    mock_sleep.assert_called_once_with(1)
+
+    def test_min_max_retries(self):
+        with patch("config.MAX_RETRIES",1):
+            with patch("github_api.time.sleep")as mock_sleep:
+                with patch("github_api.requests.get")as mock_get:
+                    mock_get.side_effect=[
+                        requests.exceptions.Timeout("请求超时")
+                    ]
+                    result=get_repo_info(self.repo)
+                    self.assertEqual(result,(None,None))
+                    mock_get.assert_called_once()
+                    mock_sleep.assert_not_called
+                    #self.assertEqual(mock_sleep.call_count,0)
+
+    def test_invalid_max_retries(self):
+        self.addCleanup(importlib.reload,config)
+        with patch.dict(os.environ,{"MAX_RETRIES":"0"}):
+            importlib.reload(config)
+            with patch("github_api.time.sleep")as mock_sleep:
+                with patch("github_api.requests.get")as mock_get:
+                    mock_get.side_effect=[
+                        requests.exceptions.Timeout("请求超时")
+                    ]*3
+                    self.assertEqual(config.MAX_RETRIES,3)
+                    result=get_repo_info(self.repo)
+                    self.assertEqual(result,(None,None))
+                    self.assertEqual(mock_sleep.call_count,2)
+                    self.assertEqual(mock_get.call_count,3)
         
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 
