@@ -10,6 +10,25 @@ def show_url(repo:str)->str:
     url=f"https://api.github.com/repos/{repo}"
     return url
 
+def request_with_retry(url:str,headers:dict[str,str])->requests.Response:
+    for attempt in range(config.MAX_RETRIES):
+        try:
+            response=requests.get(url,headers=headers,timeout=config.REQUEST_TIMEOUT)
+        except (requests.exceptions.Timeout,requests.exceptions.ConnectionError)as e:
+            if attempt==config.MAX_RETRIES-1:
+                raise #交给外层except
+            logger.warning(f"仓库 {url} 第{attempt+1}次请求失败,准备重试:{e}")
+            time.sleep(config.RETRIES_BACKOFF_BASE**attempt)
+            continue
+        else:
+            if response.status_code in (500,502,503,504):#服务器出现故障
+                if attempt==config.MAX_RETRIES-1:
+                    break
+                time.sleep(config.RETRIES_BACKOFF_BASE**attempt)
+            else:
+                break
+    return response
+
 def get_repo_info(repo:str)->tuple[str|None,int|None]:
     url=show_url(repo)
     logger.info(f"开始请求仓库:{repo}")
@@ -21,17 +40,7 @@ def get_repo_info(repo:str)->tuple[str|None,int|None]:
         if token:
            headers["Authorization"]=f"Bearer {token}"
         
-        for attempt in range(config.MAX_RETRIES):
-            try:
-                response=requests.get(url,headers=headers,timeout=config.REQUEST_TIMEOUT)
-            except (requests.exceptions.Timeout,requests.exceptions.ConnectionError)as e:
-                if attempt==config.MAX_RETRIES-1:
-                    raise #交给外层except
-                logger.warning(f"仓库 {repo} 第{attempt+1}次请求失败,准备重试:{e}")
-                time.sleep(config.RETRIES_BACKOFF_BASE**attempt)
-                continue
-            else:
-                break
+        response=request_with_retry(url,headers)
         if response.status_code==404:
             logger.warning(f"仓库 {repo} 不存在,HTTP 状态码:404")
             print(f"仓库{repo}不存在")

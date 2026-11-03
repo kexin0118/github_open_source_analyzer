@@ -346,23 +346,59 @@ class TestGitHubApi(unittest.TestCase):
                     result=get_repo_info(self.repo)
                     self.assertEqual(result,(None,None))
                     mock_get.assert_called_once()
-                    mock_sleep.assert_not_called
+                    mock_sleep.assert_not_called()
                     #self.assertEqual(mock_sleep.call_count,0)
 
     def test_invalid_max_retries(self):
         self.addCleanup(importlib.reload,config)
-        with patch.dict(os.environ,{"MAX_RETRIES":"0"}):
-            importlib.reload(config)
+        invalid_valus=["0","-2","abc","2,5"]
+        for value in invalid_valus:
+            with self.subTest(value=value):
+                with patch.dict(os.environ,{"MAX_RETRIES":value}):
+                    importlib.reload(config)#重新执行已经导入的模块代码
+                    with patch("github_api.time.sleep")as mock_sleep:
+                        with patch("github_api.requests.get")as mock_get:
+                            mock_get.side_effect=[
+                                requests.exceptions.Timeout("请求超时")
+                            ]*3
+                            self.assertEqual(config.MAX_RETRIES,3)
+                            result=get_repo_info(self.repo)
+                            self.assertEqual(result,(None,None))
+                            self.assertEqual(mock_sleep.call_count,2)
+                            self.assertEqual(mock_get.call_count,3)
+
+    
+    def test_retry_http_500(self):
+        response_200=Mock()
+        response_200.status_code=200
+        response_200.json.return_value={
+            "full_name":self.repo,
+            "stargazers_count":100
+        }
+        response_500=Mock()
+        response_500.status_code=500
+        with patch("github_api.requests.get")as mock_get:
+            mock_get.side_effect=[response_500,response_200]
             with patch("github_api.time.sleep")as mock_sleep:
-                with patch("github_api.requests.get")as mock_get:
-                    mock_get.side_effect=[
-                        requests.exceptions.Timeout("请求超时")
-                    ]*3
-                    self.assertEqual(config.MAX_RETRIES,3)
-                    result=get_repo_info(self.repo)
-                    self.assertEqual(result,(None,None))
-                    self.assertEqual(mock_sleep.call_count,2)
-                    self.assertEqual(mock_get.call_count,3)
+                    
+                result=get_repo_info(self.repo)
+                self.assertEqual(result,(self.repo,100))
+                self.assertEqual(mock_get.call_count,2)
+                mock_sleep.assert_called_once_with(1)
+
+    def test_retry_http_500_exhausted(self):
+        response_500=Mock()
+        #让Mock模拟真实的http 500响应在检查状态时的抛出异常
+        response_500.raise_for_status_.side_effect=(requests.exceptions.HTTPError("500 Server Error"))
+        response_500.status_code=500
+        with patch("github_api.requests.get")as mock_get:
+            with patch("github_api.time.sleep")as mock_sleep:
+                mock_get.side_effect=[response_500]*3
+                result=get_repo_info(self.repo)
+                self.assertEqual(result,(None,None))
+                self.assertEqual(mock_get.call_count,3)
+                self.assertEqual(mock_sleep.call_args_list,[call(1),call(2)])
+                
         
 if __name__=="__main__":#只有运行test.py才执行下面代码
     unittest.main() 
